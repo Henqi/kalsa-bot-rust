@@ -1,0 +1,12 @@
+[package]
+name = "kalsa-bot-rust"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+anyhow = "1.0.83"
+dotenv = "0.15.0"
+dotenv_codegen = "0.15.0"
+reqwest = "0.12.4"
+teloxide = "0.12.2"
+tokio = { version = "1.37.0", features = ["rt", "rt-multi-thread", "macros"] }
