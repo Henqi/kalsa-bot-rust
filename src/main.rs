@@ -1,4 +1,7 @@
 use anyhow::Result;
+use chrono::{DateTime, TimeZone, Timelike, Utc};
+use chrono_tz::Europe::Helsinki;
+use chrono_tz::Tz;
 use dotenv::dotenv;
 use reqwest::header::HeaderMap;
 use reqwest::Client;
@@ -7,9 +10,6 @@ use serde::Deserialize;
 use serde_json::Value;
 use std::collections::HashMap;
 use std::env;
-use chrono::{DateTime, Utc, TimeZone, Timelike};
-use chrono_tz::Europe::Helsinki;
-use chrono_tz::Tz;
 
 const API_KEY_NAME: &str = "TELOXIDE_TOKEN";
 const API_URL: &str = "https://avoinna24.fi/api/slot";
@@ -17,7 +17,6 @@ const USER_AGENT: &str = "Mozilla/5.0 (Macintosh; Intel Mac OS X 14_4_1) AppleWe
 const DATE: &str = "2024-05-10";
 const HAKIS_SHIFT_ENDTIME: u32 = 18;
 const DELSU_SHIFT_ENDTIME: u32 = 19;
-
 
 #[derive(Debug, Deserialize)]
 struct ApiResponse {
@@ -94,17 +93,22 @@ async fn check_hakis_availability(client: &Client) -> anyhow::Result<()> {
         if let Some(endtime) = &shift_item.attributes.endtime {
             let endtime: DateTime<Tz> = DateTime::parse_from_rfc3339(endtime)
                 .unwrap()
-                .with_timezone(&Helsinki);  
+                .with_timezone(&Helsinki);
             println!("Free shift endtimes: {}", endtime.to_rfc3339());
             if endtime.hour() == HAKIS_SHIFT_ENDTIME {
-                 println!("Vuoro vapaana, joka loppuu tunnilla {}", endtime.hour().to_string())
+                println!(
+                    "Vuoro vapaana, joka loppuu tunnilla {}",
+                    endtime.hour().to_string()
+                )
             } else {
-                println!("TUNNILLA {} EI OLE LOPPUVIA VUOROJA", endtime.hour().to_string())
+                println!(
+                    "TUNNILLA {} EI OLE LOPPUVIA VUOROJA",
+                    endtime.hour().to_string()
+                )
             }
         }
     }
     Ok(())
-
 }
 
 async fn check_delsu_availability(client: &Client) -> anyhow::Result<()> {
@@ -145,12 +149,18 @@ async fn check_delsu_availability(client: &Client) -> anyhow::Result<()> {
         if let Some(endtime) = &shift_item.attributes.endtime {
             let endtime: DateTime<Tz> = DateTime::parse_from_rfc3339(endtime)
                 .unwrap()
-                .with_timezone(&Helsinki);  
+                .with_timezone(&Helsinki);
             println!("Free shift endtimes: {}", endtime.to_rfc3339());
             if endtime.hour() == DELSU_SHIFT_ENDTIME {
-                 println!("Vuoro vapaana, joka loppuu tunnilla {}", endtime.hour().to_string())
+                println!(
+                    "Vuoro vapaana, joka loppuu tunnilla {}",
+                    endtime.hour().to_string()
+                )
             } else {
-                println!("TUNNILLA {} EI OLE LOPPUVIA VUOROJA", endtime.hour().to_string())
+                println!(
+                    "TUNNILLA {} EI OLE LOPPUVIA VUOROJA",
+                    endtime.hour().to_string()
+                )
             }
         }
     }
