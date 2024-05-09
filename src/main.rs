@@ -2,12 +2,41 @@ use anyhow::Result;
 use dotenv::dotenv;
 use reqwest::header::HeaderMap;
 use reqwest::Client;
+use reqwest::Response;
+use serde::Deserialize;
+use serde_json::Value;
 use std::collections::HashMap;
 use std::env;
 
 const API_KEY_NAME: &str = "TELOXIDE_TOKEN";
 const API_URL: &str = "https://avoinna24.fi/api/slot";
 const USER_AGENT: &str = "Mozilla/5.0 (Macintosh; Intel Mac OS X 14_4_1) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4.1 Safari/605.1.15";
+
+#[derive(Debug, Deserialize)]
+struct ApiResponse {
+    data: Vec<ShiftItem>,
+}
+
+#[derive(Debug, Deserialize)]
+struct ShiftItem {
+    // id: Option<i32>,
+    // #[serde(rename = "type")]
+    // data_type: String,
+    attributes: Attributes,
+    // relationships: Option<String>,
+    // meta: Option<String>.
+}
+
+#[derive(Debug, Deserialize)]
+struct Attributes {
+    // "59305e30-8b49-11e9-800b-fa163e3c66dd"
+    // #[serde(rename = "productId")]
+    product_id: Option<String>,
+    // "2024-05-09T06:30:00Z"
+    starttime: Option<String>,
+    //"2024-05-09T07:30:00Z"
+    endtime: Option<String>,
+}
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -46,11 +75,16 @@ async fn check_hakis_availability(client: &Client) -> anyhow::Result<()> {
     hakis["end"],
     );
 
-    let response = client.get(url).headers(headers).send().await?;
+    let response: ApiResponse = client
+        .get(url.to_string())
+        // .query()
+        .headers(headers)
+        .send()
+        .await?
+        .json()
+        .await?;
 
-    println!("Status: {}", response.status());
-    let body = response.text().await?;
-    println!("Body:\n{}", body);
+    println!("{:#?}", response);
     Ok(())
 }
 
@@ -78,10 +112,15 @@ async fn check_delsu_availability(client: &Client) -> anyhow::Result<()> {
     delsu["end"],
     );
 
-    let response = client.get(url).headers(headers).send().await?;
+    let response: ApiResponse = client
+        .get(url.to_string())
+        // .query()
+        .headers(headers)
+        .send()
+        .await?
+        .json()
+        .await?;
 
-    println!("Status: {}", response.status());
-    let body = response.text().await?;
-    println!("Body:\n{}", body);
+    println!("{:#?}", response);
     Ok(())
 }

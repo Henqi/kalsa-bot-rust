@@ -5,8 +5,10 @@ edition = "2021"
 
 [dependencies]
 anyhow = "1.0.83"
+chrono = "0.4.38"
 dotenv = "0.15.0"
-dotenv_codegen = "0.15.0"
-reqwest = "0.12.4"
+reqwest = { version = "0.12.4", features = ["json"] }
+serde = { version = "1.0.201", features = ["derive"] }
+serde_json = "1.0.117"
 teloxide = "0.12.2"
 tokio = { version = "1.37.0", features = ["rt", "rt-multi-thread", "macros"] }
