@@ -7,10 +7,17 @@ use serde::Deserialize;
 use serde_json::Value;
 use std::collections::HashMap;
 use std::env;
+use chrono::{DateTime, Utc, TimeZone, Timelike};
+use chrono_tz::Europe::Helsinki;
+use chrono_tz::Tz;
 
 const API_KEY_NAME: &str = "TELOXIDE_TOKEN";
 const API_URL: &str = "https://avoinna24.fi/api/slot";
 const USER_AGENT: &str = "Mozilla/5.0 (Macintosh; Intel Mac OS X 14_4_1) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4.1 Safari/605.1.15";
+const DATE: &str = "2024-05-10";
+const HAKIS_SHIFT_ENDTIME: u32 = 18;
+const DELSU_SHIFT_ENDTIME: u32 = 19;
+
 
 #[derive(Debug, Deserialize)]
 struct ApiResponse {
@@ -39,7 +46,7 @@ struct Attributes {
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     dotenv().ok();
-    let api_key: &str = &env::var(API_KEY_NAME).expect("TELOXIDE_TOKEN not found in .env");
+    let _api_key: &str = &env::var(API_KEY_NAME).expect("TELOXIDE_TOKEN not found in .env");
     // println!("{}", api_key);
 
     let client = Client::builder().user_agent(USER_AGENT).build()?;
@@ -52,16 +59,15 @@ async fn main() -> anyhow::Result<()> {
 async fn check_hakis_availability(client: &Client) -> anyhow::Result<()> {
     let mut headers = HeaderMap::new();
     headers.insert("X-Subdomain", "arenacenter".parse()?);
-    let date = "2024-05-09";
 
     let mut hakis: HashMap<&str, &str> = HashMap::new();
     hakis.insert("branch_id", "2b325906-5b7a-11e9-8370-fa163e3c66dd");
     hakis.insert("group_id", "a17ccc08-838a-11e9-8fd9-fa163e3c66dd");
     hakis.insert("product_id", "59305e30-8b49-11e9-800b-fa163e3c66dd");
     hakis.insert("user_id", "d7c92d04-807b-11e9-b480-fa163e3c66dd");
-    hakis.insert("date", date);
-    hakis.insert("start", date);
-    hakis.insert("end", date);
+    hakis.insert("date", DATE);
+    hakis.insert("start", DATE);
+    hakis.insert("end", DATE);
 
     let url = format!("https://avoinna24.fi/api/slot?filter[ismultibooking]=false&filter[branch_id]={}&filter[group_id]={}&filter[product_id]={}&filter[user_id]={}&filter[date]={}&filter[start]={}&filter[end]={}",
     hakis["branch_id"],
@@ -83,22 +89,36 @@ async fn check_hakis_availability(client: &Client) -> anyhow::Result<()> {
         .await?;
 
     println!("{:#?}", response);
+
+    for shift_item in response.data {
+        if let Some(endtime) = &shift_item.attributes.endtime {
+            let endtime: DateTime<Tz> = DateTime::parse_from_rfc3339(endtime)
+                .unwrap()
+                .with_timezone(&Helsinki);  
+            println!("Free shift endtimes: {}", endtime.to_rfc3339());
+            if endtime.hour() == HAKIS_SHIFT_ENDTIME {
+                 println!("Vuoro vapaana, joka loppuu tunnilla {}", endtime.hour().to_string())
+            } else {
+                println!("TUNNILLA {} EI OLE LOPPUVIA VUOROJA", endtime.hour().to_string())
+            }
+        }
+    }
     Ok(())
+
 }
 
 async fn check_delsu_availability(client: &Client) -> anyhow::Result<()> {
     let mut headers = HeaderMap::new();
     headers.insert("X-Subdomain", "arenacenter".parse()?);
-    let date = "2024-05-09";
 
     let mut delsu: HashMap<&str, &str> = HashMap::new();
     delsu.insert("branch_id", "2b325906-5b7a-11e9-8370-fa163e3c66dd");
     delsu.insert("group_id", "a17ccc08-838a-11e9-8fd9-fa163e3c66dd");
     delsu.insert("product_id", "59305e30-8b49-11e9-800b-fa163e3c66dd");
     delsu.insert("user_id", "ea8b1cf4-807b-11e9-93b7-fa163e3c66dd");
-    delsu.insert("date", date);
-    delsu.insert("start", date);
-    delsu.insert("end", date);
+    delsu.insert("date", DATE);
+    delsu.insert("start", DATE);
+    delsu.insert("end", DATE);
 
     let url = format!("https://avoinna24.fi/api/slot?filter[ismultibooking]=false&filter[branch_id]={}&filter[group_id]={}&filter[product_id]={}&filter[user_id]={}&filter[date]={}&filter[start]={}&filter[end]={}",
     delsu["branch_id"],
@@ -120,5 +140,20 @@ async fn check_delsu_availability(client: &Client) -> anyhow::Result<()> {
         .await?;
 
     println!("{:#?}", response);
+
+    for shift_item in response.data {
+        if let Some(endtime) = &shift_item.attributes.endtime {
+            let endtime: DateTime<Tz> = DateTime::parse_from_rfc3339(endtime)
+                .unwrap()
+                .with_timezone(&Helsinki);  
+            println!("Free shift endtimes: {}", endtime.to_rfc3339());
+            if endtime.hour() == DELSU_SHIFT_ENDTIME {
+                 println!("Vuoro vapaana, joka loppuu tunnilla {}", endtime.hour().to_string())
+            } else {
+                println!("TUNNILLA {} EI OLE LOPPUVIA VUOROJA", endtime.hour().to_string())
+            }
+        }
+    }
+
     Ok(())
 }
