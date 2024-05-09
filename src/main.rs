@@ -23,8 +23,6 @@ struct ShiftItem {
     // #[serde(rename = "type")]
     // data_type: String,
     attributes: Attributes,
-    // relationships: Option<String>,
-    // meta: Option<String>.
 }
 
 #[derive(Debug, Deserialize)]
