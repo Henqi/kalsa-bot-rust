@@ -1,5 +1,4 @@
-use chrono::prelude::*;
-use chrono::{DateTime, Duration, Timelike};
+use chrono::{DateTime, Timelike, Duration};
 use chrono_tz::Europe::Helsinki;
 use chrono_tz::Tz;
 use dotenv::dotenv;
@@ -7,12 +6,14 @@ use reqwest::header::HeaderMap;
 use reqwest::Client;
 use serde::Deserialize;
 use std::env;
+use chrono::prelude::*;
 
 const API_KEY_NAME: &str = "TELOXIDE_TOKEN";
 const API_URL: &str = "https://avoinna24.fi/api/slot";
 const USER_AGENT: &str = "Mozilla/5.0 (Macintosh; Intel Mac OS X 14_4_1) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4.1 Safari/605.1.15";
 const HAKIS_SHIFT_ENDTIME: u32 = 18;
 const DELSU_SHIFT_ENDTIME: u32 = 19;
+
 
 #[derive(Debug, Deserialize)]
 struct ApiResponse {
@@ -21,16 +22,11 @@ struct ApiResponse {
 
 #[derive(Debug, Deserialize)]
 struct ShiftItem {
-    // id: Option<i32>,
-    // #[serde(rename = "type")]
-    // data_type: String,
     attributes: Attributes,
 }
 
 #[derive(Debug, Deserialize)]
 struct Attributes {
-    // "59305e30-8b49-11e9-800b-fa163e3c66dd"
-    // #[serde(rename = "productId")]
     product_id: Option<String>,
     // "2024-05-09T06:30:00Z"
     starttime: Option<String>,
@@ -59,7 +55,8 @@ async fn check_hakis_availability(client: &Client) -> anyhow::Result<()> {
     let next_day = date + Duration::days(1);
     let formatted_date = next_day.format("%Y-%m-%d").to_string();
 
-    let mut hakis_parameters = vec![
+
+    let hakis_parameters = vec![
         ("filter[ismultibooking]", "false"),
         ("filter[branch_id]", "2b325906-5b7a-11e9-8370-fa163e3c66dd"),
         ("filter[group_id]", "a17ccc08-838a-11e9-8fd9-fa163e3c66dd"),
@@ -98,6 +95,7 @@ async fn check_hakis_availability(client: &Client) -> anyhow::Result<()> {
     Ok(())
 }
 
+
 async fn check_delsu_availability(client: &Client) -> anyhow::Result<()> {
     let mut headers = HeaderMap::new();
     headers.insert("X-Subdomain", "arenacenter".parse()?);
@@ -106,7 +104,7 @@ async fn check_delsu_availability(client: &Client) -> anyhow::Result<()> {
     let next_day = date + Duration::days(1);
     let formatted_date = next_day.format("%Y-%m-%d").to_string();
 
-    let mut delsu_parameters = vec![
+    let delsu_parameters = vec![
         ("filter[ismultibooking]", "false"),
         ("filter[branch_id]", "2b325906-5b7a-11e9-8370-fa163e3c66dd"),
         ("filter[group_id]", "a17ccc08-838a-11e9-8fd9-fa163e3c66dd"),
