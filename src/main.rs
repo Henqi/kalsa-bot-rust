@@ -1,22 +1,19 @@
-use anyhow::Result;
-use chrono::{DateTime, TimeZone, Timelike, Utc};
+use chrono::{DateTime, Timelike, Duration};
 use chrono_tz::Europe::Helsinki;
 use chrono_tz::Tz;
 use dotenv::dotenv;
 use reqwest::header::HeaderMap;
 use reqwest::Client;
-use reqwest::Response;
 use serde::Deserialize;
-use serde_json::Value;
-use std::collections::HashMap;
 use std::env;
+use chrono::prelude::*;
 
 const API_KEY_NAME: &str = "TELOXIDE_TOKEN";
 const API_URL: &str = "https://avoinna24.fi/api/slot";
 const USER_AGENT: &str = "Mozilla/5.0 (Macintosh; Intel Mac OS X 14_4_1) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4.1 Safari/605.1.15";
-const DATE: &str = "2024-05-14";
 const HAKIS_SHIFT_ENDTIME: u32 = 18;
 const DELSU_SHIFT_ENDTIME: u32 = 19;
+
 
 #[derive(Debug, Deserialize)]
 struct ApiResponse {
@@ -59,15 +56,20 @@ async fn check_hakis_availability(client: &Client) -> anyhow::Result<()> {
     let mut headers = HeaderMap::new();
     headers.insert("X-Subdomain", "arenacenter".parse()?);
 
+    let date: DateTime<Local> = Local::now();
+    let next_day = date + Duration::days(1);
+    let formatted_date = next_day.format("%Y-%m-%d").to_string();
+
+
     let mut hakis_parameters = vec![
         ("filter[ismultibooking]", "false"),
         ("filter[branch_id]", "2b325906-5b7a-11e9-8370-fa163e3c66dd"),
         ("filter[group_id]", "a17ccc08-838a-11e9-8fd9-fa163e3c66dd"),
         ("filter[product_id]", "59305e30-8b49-11e9-800b-fa163e3c66dd"),
         ("filter[user_id]", "d7c92d04-807b-11e9-b480-fa163e3c66dd"),
-        ("filter[date]", DATE),
-        ("filter[start]", DATE),
-        ("filter[end]", DATE),
+        ("filter[date]", &formatted_date),
+        ("filter[start]", &formatted_date),
+        ("filter[end]", &formatted_date),
     ];
 
     let response: ApiResponse = client
@@ -79,7 +81,7 @@ async fn check_hakis_availability(client: &Client) -> anyhow::Result<()> {
         .json()
         .await?;
 
-    println!("{:#?}", response);
+    // println!("{:#?}", response);
 
     for shift_item in response.data {
         if let Some(endtime) = &shift_item.attributes.endtime {
@@ -93,10 +95,7 @@ async fn check_hakis_availability(client: &Client) -> anyhow::Result<()> {
                     endtime.hour().to_string()
                 )
             } else {
-                println!(
-                    "TUNNILLA {} EI OLE LOPPUVIA VUOROJA",
-                    endtime.hour().to_string()
-                )
+                continue;
             }
         }
     }
