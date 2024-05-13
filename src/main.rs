@@ -48,7 +48,7 @@ async fn main() -> anyhow::Result<()> {
     let client = Client::builder().user_agent(USER_AGENT).build()?;
     check_hakis_availability(&client).await?;
     println!("-----");
-    // check_delsu_availability(&client).await?;
+    check_delsu_availability(&client).await?;
     Ok(())
 }
 
@@ -81,8 +81,6 @@ async fn check_hakis_availability(client: &Client) -> anyhow::Result<()> {
         .json()
         .await?;
 
-    // println!("{:#?}", response);
-
     for shift_item in response.data {
         if let Some(endtime) = &shift_item.attributes.endtime {
             let endtime: DateTime<Tz> = DateTime::parse_from_rfc3339(endtime)
@@ -102,59 +100,51 @@ async fn check_hakis_availability(client: &Client) -> anyhow::Result<()> {
     Ok(())
 }
 
-// async fn check_delsu_availability(client: &Client) -> anyhow::Result<()> {
-//     let mut headers = HeaderMap::new();
-//     headers.insert("X-Subdomain", "arenacenter".parse()?);
 
-//     let mut delsu: HashMap<&str, &str> = HashMap::new();
-//     delsu.insert("branch_id", "2b325906-5b7a-11e9-8370-fa163e3c66dd");
-//     delsu.insert("group_id", "a17ccc08-838a-11e9-8fd9-fa163e3c66dd");
-//     delsu.insert("product_id", "59305e30-8b49-11e9-800b-fa163e3c66dd");
-//     delsu.insert("user_id", "ea8b1cf4-807b-11e9-93b7-fa163e3c66dd");
-//     delsu.insert("date", DATE);
-//     delsu.insert("start", DATE);
-//     delsu.insert("end", DATE);
+async fn check_delsu_availability(client: &Client) -> anyhow::Result<()> {
+    let mut headers = HeaderMap::new();
+    headers.insert("X-Subdomain", "arenacenter".parse()?);
 
-//     let url = format!("https://avoinna24.fi/api/slot?filter[ismultibooking]=false&filter[branch_id]={}&filter[group_id]={}&filter[product_id]={}&filter[user_id]={}&filter[date]={}&filter[start]={}&filter[end]={}",
-//     delsu["branch_id"],
-//     delsu["group_id"],
-//     delsu["product_id"],
-//     delsu["user_id"],
-//     delsu["date"],
-//     delsu["start"],
-//     delsu["end"],
-//     );
+    let date: DateTime<Local> = Local::now();
+    let next_day = date + Duration::days(1);
+    let formatted_date = next_day.format("%Y-%m-%d").to_string();
 
-//     let response: ApiResponse = client
-//         .get(url.to_string())
-//         // .query()
-//         .headers(headers)
-//         .send()
-//         .await?
-//         .json()
-//         .await?;
 
-//     println!("{:#?}", response);
+    let mut delsu_parameters = vec![
+        ("filter[ismultibooking]", "false"),
+        ("filter[branch_id]", "2b325906-5b7a-11e9-8370-fa163e3c66dd"),
+        ("filter[group_id]", "a17ccc08-838a-11e9-8fd9-fa163e3c66dd"),
+        ("filter[product_id]", "59305e30-8b49-11e9-800b-fa163e3c66dd"),
+        ("filter[user_id]", "ea8b1cf4-807b-11e9-93b7-fa163e3c66dd"),
+        ("filter[date]", &formatted_date),
+        ("filter[start]", &formatted_date),
+        ("filter[end]", &formatted_date),
+    ];
 
-//     for shift_item in response.data {
-//         if let Some(endtime) = &shift_item.attributes.endtime {
-//             let endtime: DateTime<Tz> = DateTime::parse_from_rfc3339(endtime)
-//                 .unwrap()
-//                 .with_timezone(&Helsinki);
-//             println!("Free shift endtimes: {}", endtime.to_rfc3339());
-//             if endtime.hour() == DELSU_SHIFT_ENDTIME {
-//                 println!(
-//                     "Vuoro vapaana, joka loppuu tunnilla {}",
-//                     endtime.hour().to_string()
-//                 )
-//             } else {
-//                 println!(
-//                     "TUNNILLA {} EI OLE LOPPUVIA VUOROJA",
-//                     endtime.hour().to_string()
-//                 )
-//             }
-//         }
-//     }
+    let response: ApiResponse = client
+        .get(API_URL.to_string())
+        .query(&delsu_parameters)
+        .headers(headers)
+        .send()
+        .await?
+        .json()
+        .await?;
 
-//     Ok(())
-// }
+    for shift_item in response.data {
+        if let Some(endtime) = &shift_item.attributes.endtime {
+            let endtime: DateTime<Tz> = DateTime::parse_from_rfc3339(endtime)
+                .unwrap()
+                .with_timezone(&Helsinki);
+            println!("Free shift endtimes: {}", endtime.to_rfc3339());
+            if endtime.hour() == HAKIS_SHIFT_ENDTIME {
+                println!(
+                    "Vuoro vapaana, joka loppuu tunnilla {}",
+                    endtime.hour().to_string()
+                )
+            } else {
+                continue;
+            }
+        }
+    }
+    Ok(())
+}
