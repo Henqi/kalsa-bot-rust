@@ -38,7 +38,6 @@ struct Attributes {
 async fn main() -> anyhow::Result<()> {
     dotenv().ok();
     let _api_key: &str = &env::var(API_KEY_NAME).expect("TELOXIDE_TOKEN not found in .env");
-    // println!("{}", api_key);
 
     let client = Client::builder().user_agent(USER_AGENT).build()?;
     check_hakis_availability(&client).await?;
@@ -82,7 +81,7 @@ async fn check_hakis_availability(client: &Client) -> anyhow::Result<()> {
                 .unwrap()
                 .with_timezone(&Helsinki);
             println!("Free shift endtimes: {}", endtime.to_rfc3339());
-            if endtime.hour() == DELSU_SHIFT_ENDTIME {
+            if &endtime.hour() == &DELSU_SHIFT_ENDTIME {
                 println!(
                     "Vuoro vapaana, joka loppuu tunnilla {}",
                     endtime.hour().to_string()
@@ -130,7 +129,7 @@ async fn check_delsu_availability(client: &Client) -> anyhow::Result<()> {
                 .unwrap()
                 .with_timezone(&Helsinki);
             println!("Free shift endtimes: {}", endtime.to_rfc3339());
-            if endtime.hour() == HAKIS_SHIFT_ENDTIME {
+            if &endtime.hour() == &HAKIS_SHIFT_ENDTIME {
                 println!(
                     "Vuoro vapaana, joka loppuu tunnilla {}",
                     endtime.hour().to_string()
