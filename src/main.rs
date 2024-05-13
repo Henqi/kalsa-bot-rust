@@ -7,6 +7,8 @@ use reqwest::Client;
 use serde::Deserialize;
 use std::env;
 use chrono::prelude::*;
+use teloxide::{prelude::*, utils::command::BotCommands};
+
 
 const API_KEY_NAME: &str = "TELOXIDE_TOKEN";
 const API_URL: &str = "https://avoinna24.fi/api/slot";
@@ -34,26 +36,57 @@ struct Attributes {
     endtime: Option<String>,
 }
 
+#[derive(BotCommands, Clone)]
+#[command(rename_rule = "lowercase", description = "These commands are supported:")]
+enum Command {
+    #[command(description = "Onko kenttä vapaa?")]
+    Help,
+    #[command(description = "Onko Hakis vapaa?")]
+    Hakis,
+    #[command(description = "Onko Delsu vapaa?")]
+    Delsu,
+}
+
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     dotenv().ok();
     let _api_key: &str = &env::var(API_KEY_NAME).expect("TELOXIDE_TOKEN not found in .env");
 
-    let client = Client::builder().user_agent(USER_AGENT).build()?;
-    check_hakis_availability(&client).await?;
-    println!("-----");
-    check_delsu_availability(&client).await?;
+    pretty_env_logger::init();
+    log::info!("Starting command bot...");
+
+    let bot = Bot::from_env();
+
+    Command::repl(bot, answer).await;
     Ok(())
 }
 
-async fn check_hakis_availability(client: &Client) -> anyhow::Result<()> {
+async fn answer(bot: Bot, msg: Message, cmd: Command) -> ResponseResult<()> {
+    let client = Client::builder().user_agent(USER_AGENT).build()?;
+
+    match cmd {
+        Command::Help => bot.send_message(msg.chat.id, Command::descriptions().to_string()).await?,
+        Command::Hakis => {
+            let hakis_available = check_hakis_availability(&client);
+            bot.send_message(msg.chat.id, format!(hakis_available)).await?
+        }
+        Command::Delsu => {
+            let delsu_available = check_delsu_availability(&client);
+            bot.send_message(msg.chat.id, format!("{}", delsu_available)).await?
+        }
+    };
+
+    Ok(())
+}
+
+// async fn check_hakis_availability(client: &Client) -> anyhow::Result<()> {
+async fn check_hakis_availability(client: &Client) -> String {
     let mut headers = HeaderMap::new();
     headers.insert("X-Subdomain", "arenacenter".parse()?);
 
     let date: DateTime<Local> = Local::now();
     let next_day = date + Duration::days(1);
     let formatted_date = next_day.format("%Y-%m-%d").to_string();
-
 
     let hakis_parameters = vec![
         ("filter[ismultibooking]", "false"),
@@ -75,27 +108,16 @@ async fn check_hakis_availability(client: &Client) -> anyhow::Result<()> {
         .json()
         .await?;
 
-    for shift_item in response.data {
-        if let Some(endtime) = &shift_item.attributes.endtime {
-            let endtime: DateTime<Tz> = DateTime::parse_from_rfc3339(endtime)
-                .unwrap()
-                .with_timezone(&Helsinki);
-            println!("Free shift endtimes: {}", endtime.to_rfc3339());
-            if &endtime.hour() == &DELSU_SHIFT_ENDTIME {
-                println!(
-                    "Vuoro vapaana, joka loppuu tunnilla {}",
-                    endtime.hour().to_string()
-                )
-            } else {
-                continue;
-            }
-        }
+    if let Some(value) = get_free_shift_data(response, &HAKIS_SHIFT_ENDTIME) {
+        return value;
+    } else {
+        return "EI DATAA!".to_string()
     }
-    Ok(())
 }
 
 
-async fn check_delsu_availability(client: &Client) -> anyhow::Result<()> {
+// async fn check_delsu_availability(client: &Client) -> anyhow::Result<()> {
+async fn check_delsu_availability(client: &Client) -> String {
     let mut headers = HeaderMap::new();
     headers.insert("X-Subdomain", "arenacenter".parse()?);
 
@@ -123,21 +145,30 @@ async fn check_delsu_availability(client: &Client) -> anyhow::Result<()> {
         .json()
         .await?;
 
+    if let Some(value) = get_free_shift_data(response, &DELSU_SHIFT_ENDTIME) {
+        return value;
+    } else {
+        return "EI DATAA!".to_string()
+    }
+}
+
+fn get_free_shift_data(response: ApiResponse, shift_end_time: &u32) -> Option<String> {
     for shift_item in response.data {
         if let Some(endtime) = &shift_item.attributes.endtime {
             let endtime: DateTime<Tz> = DateTime::parse_from_rfc3339(endtime)
                 .unwrap()
                 .with_timezone(&Helsinki);
             println!("Free shift endtimes: {}", endtime.to_rfc3339());
-            if &endtime.hour() == &HAKIS_SHIFT_ENDTIME {
+            if &endtime.hour() == shift_end_time {
                 println!(
                     "Vuoro vapaana, joka loppuu tunnilla {}",
                     endtime.hour().to_string()
-                )
+                );
+                return Some("Vapaa on!".to_string());
             } else {
-                continue;
+                return Some("EI VAPAATA VUOROA!".to_string());
             }
         }
     }
-    Ok(())
+    None
 }
