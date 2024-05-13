@@ -82,7 +82,7 @@ async fn check_hakis_availability(client: &Client) -> anyhow::Result<()> {
                 .unwrap()
                 .with_timezone(&Helsinki);
             println!("Free shift endtimes: {}", endtime.to_rfc3339());
-            if endtime.hour() == HAKIS_SHIFT_ENDTIME {
+            if endtime.hour() == DELSU_SHIFT_ENDTIME {
                 println!(
                     "Vuoro vapaana, joka loppuu tunnilla {}",
                     endtime.hour().to_string()
