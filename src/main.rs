@@ -91,7 +91,7 @@ async fn check_hakis_availability(client: &Client) -> Result<String, Error> {
     headers.insert("X-Subdomain", "arenacenter".parse().unwrap());
 
     let date: DateTime<Local> = Local::now();
-    let next_day: DateTime<Local> = date + Duration::days(2);
+    let next_day: DateTime<Local> = date + Duration::days(5);
     let formatted_date: String = next_day.format("%Y-%m-%d").to_string();
 
     let hakis_parameters: Vec<(&str, &str)> = vec![
@@ -133,7 +133,7 @@ async fn check_delsu_availability(client: &Client) -> Result<String, Error> {
     headers.insert("X-Subdomain", "arenacenter".parse().unwrap());
 
     let date: DateTime<Local> = Local::now();
-    let next_day: DateTime<Local> = date + Duration::days(3);
+    let next_day: DateTime<Local> = date + Duration::days(4);
     let formatted_date: String = next_day.format("%Y-%m-%d").to_string();
 
     let delsu_parameters: Vec<(&str, &str)> = vec![
@@ -184,9 +184,9 @@ fn get_free_shift_data(response: ApiResponse, shift_end_time: &u32) -> Option<St
                 );
                 return Some("Vapaa on!".to_string());
             } else {
-                return Some("EI VAPAATA VUOROA!".to_string());
+                continue;
             }
         }
     }
-    None
+    return Some("EI VAPAATA VUOROA!".to_string());
 }
