@@ -1,4 +1,5 @@
-use chrono::{DateTime, Timelike, Duration};
+use chrono::prelude::*;
+use chrono::{DateTime, Duration, Timelike};
 use chrono_tz::Europe::Helsinki;
 use chrono_tz::Tz;
 use dotenv::dotenv;
@@ -6,8 +7,8 @@ use reqwest::header::HeaderMap;
 use reqwest::Client;
 use serde::Deserialize;
 use std::env;
-use chrono::prelude::*;
 use teloxide::{prelude::*, utils::command::BotCommands};
+use anyhow::{Error, Result};
 
 
 const API_KEY_NAME: &str = "TELOXIDE_TOKEN";
@@ -15,7 +16,6 @@ const API_URL: &str = "https://avoinna24.fi/api/slot";
 const USER_AGENT: &str = "Mozilla/5.0 (Macintosh; Intel Mac OS X 14_4_1) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4.1 Safari/605.1.15";
 const HAKIS_SHIFT_ENDTIME: u32 = 18;
 const DELSU_SHIFT_ENDTIME: u32 = 19;
-
 
 #[derive(Debug, Deserialize)]
 struct ApiResponse {
@@ -37,7 +37,10 @@ struct Attributes {
 }
 
 #[derive(BotCommands, Clone)]
-#[command(rename_rule = "lowercase", description = "These commands are supported:")]
+#[command(
+    rename_rule = "lowercase",
+    description = "These commands are supported:"
+)]
 enum Command {
     #[command(description = "Onko kenttä vapaa?")]
     Help,
@@ -56,36 +59,38 @@ async fn main() -> anyhow::Result<()> {
     log::info!("Starting command bot...");
 
     let bot = Bot::from_env();
-
     Command::repl(bot, answer).await;
+
     Ok(())
 }
 
 async fn answer(bot: Bot, msg: Message, cmd: Command) -> ResponseResult<()> {
-    let client = Client::builder().user_agent(USER_AGENT).build()?;
+    let client = Client::builder().user_agent(USER_AGENT).build().unwrap();
 
     match cmd {
-        Command::Help => bot.send_message(msg.chat.id, Command::descriptions().to_string()).await?,
+        Command::Help => {
+            bot.send_message(msg.chat.id, Command::descriptions().to_string())
+                .await?
+        }
         Command::Hakis => {
-            let hakis_available = check_hakis_availability(&client);
-            bot.send_message(msg.chat.id, format!(hakis_available)).await?
+            let hakis_available = check_hakis_availability(&client).await;
+            bot.send_message(msg.chat.id, hakis_available.unwrap()).await?
         }
         Command::Delsu => {
-            let delsu_available = check_delsu_availability(&client);
-            bot.send_message(msg.chat.id, format!("{}", delsu_available)).await?
+            let delsu_available = check_delsu_availability(&client).await;
+            bot.send_message(msg.chat.id, delsu_available.unwrap()).await?
         }
     };
 
     Ok(())
 }
 
-// async fn check_hakis_availability(client: &Client) -> anyhow::Result<()> {
-async fn check_hakis_availability(client: &Client) -> String {
+async fn check_hakis_availability(client: &Client) -> Result<String, Error> {
     let mut headers = HeaderMap::new();
-    headers.insert("X-Subdomain", "arenacenter".parse()?);
+    headers.insert("X-Subdomain", "arenacenter".parse().unwrap());
 
     let date: DateTime<Local> = Local::now();
-    let next_day = date + Duration::days(1);
+    let next_day = date + Duration::days(2);
     let formatted_date = next_day.format("%Y-%m-%d").to_string();
 
     let hakis_parameters = vec![
@@ -99,30 +104,35 @@ async fn check_hakis_availability(client: &Client) -> String {
         ("filter[end]", &formatted_date),
     ];
 
-    let response: ApiResponse = client
+    let response = client
         .get(API_URL.to_string())
         .query(&hakis_parameters)
         .headers(headers)
         .send()
-        .await?
-        .json()
         .await?;
 
-    if let Some(value) = get_free_shift_data(response, &HAKIS_SHIFT_ENDTIME) {
-        return value;
+        if !response.status().is_success() {
+            return Err(Error::msg(format!(
+                "Request failed with status code: {}",
+                response.status()
+            )))
+        }
+
+        let json_response= response.json().await?;
+
+    if let Some(value) = get_free_shift_data(json_response, &HAKIS_SHIFT_ENDTIME) {
+        return Ok(value);
     } else {
-        return "EI DATAA!".to_string()
+        return Ok("EI DATAA!".to_string());
     }
 }
 
-
-// async fn check_delsu_availability(client: &Client) -> anyhow::Result<()> {
-async fn check_delsu_availability(client: &Client) -> String {
+async fn check_delsu_availability(client: &Client) -> Result<String, Error> {
     let mut headers = HeaderMap::new();
-    headers.insert("X-Subdomain", "arenacenter".parse()?);
+    headers.insert("X-Subdomain", "arenacenter".parse().unwrap());
 
     let date: DateTime<Local> = Local::now();
-    let next_day = date + Duration::days(1);
+    let next_day = date + Duration::days(3);
     let formatted_date = next_day.format("%Y-%m-%d").to_string();
 
     let delsu_parameters = vec![
@@ -136,19 +146,26 @@ async fn check_delsu_availability(client: &Client) -> String {
         ("filter[end]", &formatted_date),
     ];
 
-    let response: ApiResponse = client
+    let response = client
         .get(API_URL.to_string())
         .query(&delsu_parameters)
         .headers(headers)
         .send()
-        .await?
-        .json()
         .await?;
 
-    if let Some(value) = get_free_shift_data(response, &DELSU_SHIFT_ENDTIME) {
-        return value;
+        if !response.status().is_success() {
+            return Err(Error::msg(format!(
+                "Request failed with status code: {}",
+                response.status()
+            )))
+        }
+
+        let json_response= response.json().await?;
+
+    if let Some(value) = get_free_shift_data(json_response, &DELSU_SHIFT_ENDTIME) {
+        return Ok(value);
     } else {
-        return "EI DATAA!".to_string()
+        return Ok("EI DATAA!".to_string());
     }
 }
 
