@@ -1,3 +1,4 @@
+use anyhow::{Error, Result};
 use chrono::prelude::*;
 use chrono::{DateTime, Duration, Timelike};
 use chrono_tz::Europe::Helsinki;
@@ -8,8 +9,6 @@ use reqwest::Client;
 use serde::Deserialize;
 use std::env;
 use teloxide::{prelude::*, utils::command::BotCommands};
-use anyhow::{Error, Result};
-
 
 const API_KEY_NAME: &str = "TELOXIDE_TOKEN";
 const API_URL: &str = "https://avoinna24.fi/api/slot";
@@ -65,7 +64,7 @@ async fn main() -> anyhow::Result<()> {
 }
 
 async fn answer(bot: Bot, msg: Message, cmd: Command) -> ResponseResult<()> {
-    let client = Client::builder().user_agent(USER_AGENT).build().unwrap();
+    let client: Client = Client::builder().user_agent(USER_AGENT).build().unwrap();
 
     match cmd {
         Command::Help => {
@@ -74,11 +73,13 @@ async fn answer(bot: Bot, msg: Message, cmd: Command) -> ResponseResult<()> {
         }
         Command::Hakis => {
             let hakis_available = check_hakis_availability(&client).await;
-            bot.send_message(msg.chat.id, hakis_available.unwrap()).await?
+            bot.send_message(msg.chat.id, hakis_available.unwrap())
+                .await?
         }
         Command::Delsu => {
             let delsu_available = check_delsu_availability(&client).await;
-            bot.send_message(msg.chat.id, delsu_available.unwrap()).await?
+            bot.send_message(msg.chat.id, delsu_available.unwrap())
+                .await?
         }
     };
 
@@ -86,14 +87,14 @@ async fn answer(bot: Bot, msg: Message, cmd: Command) -> ResponseResult<()> {
 }
 
 async fn check_hakis_availability(client: &Client) -> Result<String, Error> {
-    let mut headers = HeaderMap::new();
+    let mut headers: HeaderMap = HeaderMap::new();
     headers.insert("X-Subdomain", "arenacenter".parse().unwrap());
 
     let date: DateTime<Local> = Local::now();
-    let next_day = date + Duration::days(2);
-    let formatted_date = next_day.format("%Y-%m-%d").to_string();
+    let next_day: DateTime<Local> = date + Duration::days(2);
+    let formatted_date: String = next_day.format("%Y-%m-%d").to_string();
 
-    let hakis_parameters = vec![
+    let hakis_parameters: Vec<(&str, &str)> = vec![
         ("filter[ismultibooking]", "false"),
         ("filter[branch_id]", "2b325906-5b7a-11e9-8370-fa163e3c66dd"),
         ("filter[group_id]", "a17ccc08-838a-11e9-8fd9-fa163e3c66dd"),
@@ -111,14 +112,14 @@ async fn check_hakis_availability(client: &Client) -> Result<String, Error> {
         .send()
         .await?;
 
-        if !response.status().is_success() {
-            return Err(Error::msg(format!(
-                "Request failed with status code: {}",
-                response.status()
-            )))
-        }
+    if !response.status().is_success() {
+        return Err(Error::msg(format!(
+            "Request failed with status code: {}",
+            response.status()
+        )));
+    }
 
-        let json_response= response.json().await?;
+    let json_response: ApiResponse = response.json().await?;
 
     if let Some(value) = get_free_shift_data(json_response, &HAKIS_SHIFT_ENDTIME) {
         return Ok(value);
@@ -128,14 +129,14 @@ async fn check_hakis_availability(client: &Client) -> Result<String, Error> {
 }
 
 async fn check_delsu_availability(client: &Client) -> Result<String, Error> {
-    let mut headers = HeaderMap::new();
+    let mut headers: HeaderMap = HeaderMap::new();
     headers.insert("X-Subdomain", "arenacenter".parse().unwrap());
 
     let date: DateTime<Local> = Local::now();
-    let next_day = date + Duration::days(3);
-    let formatted_date = next_day.format("%Y-%m-%d").to_string();
+    let next_day: DateTime<Local> = date + Duration::days(3);
+    let formatted_date: String = next_day.format("%Y-%m-%d").to_string();
 
-    let delsu_parameters = vec![
+    let delsu_parameters: Vec<(&str, &str)> = vec![
         ("filter[ismultibooking]", "false"),
         ("filter[branch_id]", "2b325906-5b7a-11e9-8370-fa163e3c66dd"),
         ("filter[group_id]", "a17ccc08-838a-11e9-8fd9-fa163e3c66dd"),
@@ -153,14 +154,14 @@ async fn check_delsu_availability(client: &Client) -> Result<String, Error> {
         .send()
         .await?;
 
-        if !response.status().is_success() {
-            return Err(Error::msg(format!(
-                "Request failed with status code: {}",
-                response.status()
-            )))
-        }
+    if !response.status().is_success() {
+        return Err(Error::msg(format!(
+            "Request failed with status code: {}",
+            response.status()
+        )));
+    }
 
-        let json_response= response.json().await?;
+    let json_response: ApiResponse = response.json().await?;
 
     if let Some(value) = get_free_shift_data(json_response, &DELSU_SHIFT_ENDTIME) {
         return Ok(value);
