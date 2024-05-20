@@ -41,6 +41,8 @@ struct Attributes {
     description = "These commands are supported:"
 )]
 enum Command {
+    #[command(description = "Käynnistä botti!")]
+    Start,
     #[command(description = "Onko kenttä vapaa?")]
     Help,
     #[command(description = "Onko Hakis vapaa?")]
@@ -67,6 +69,10 @@ async fn answer(bot: Bot, msg: Message, cmd: Command) -> ResponseResult<()> {
     let client: Client = Client::builder().user_agent(USER_AGENT).build().unwrap();
 
     match cmd {
+        Command::Start => {
+            bot.send_message(msg.chat.id, "Kalsa-bot, entistä ehompana! Powered by Rust™️")
+                .await?
+        }
         Command::Help => {
             bot.send_message(msg.chat.id, Command::descriptions().to_string())
                 .await?
