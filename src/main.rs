@@ -96,8 +96,7 @@ async fn check_hakis_availability(client: &Client) -> Result<String, Error> {
     let mut headers: HeaderMap = HeaderMap::new();
     headers.insert("X-Subdomain", "arenacenter".parse().unwrap());
 
-    let date: DateTime<Local> = Local::now();
-    let next_day: DateTime<Local> = date + Duration::days(5);
+    let next_day: DateTime<Local> = get_next_shift_date(Weekday::Wed);
     let formatted_date: String = next_day.format("%Y-%m-%d").to_string();
 
     let hakis_parameters: Vec<(&str, &str)> = vec![
@@ -127,10 +126,10 @@ async fn check_hakis_availability(client: &Client) -> Result<String, Error> {
 
     let json_response: ApiResponse = response.json().await?;
 
-    if let Some(value) = get_free_shift_data(json_response, &HAKIS_SHIFT_ENDTIME) {
-        return Ok(value);
+    if let Some(value) = get_free_shift_data(json_response, &HAKIS_SHIFT_ENDTIME, &formatted_date) {
+        Ok(value)
     } else {
-        return Ok("EI DATAA!".to_string());
+        Ok("EI DATAA!".to_string())
     }
 }
 
@@ -138,8 +137,7 @@ async fn check_delsu_availability(client: &Client) -> Result<String, Error> {
     let mut headers: HeaderMap = HeaderMap::new();
     headers.insert("X-Subdomain", "arenacenter".parse().unwrap());
 
-    let date: DateTime<Local> = Local::now();
-    let next_day: DateTime<Local> = date + Duration::days(4);
+    let next_day: DateTime<Local> = get_next_shift_date(Weekday::Tue);
     let formatted_date: String = next_day.format("%Y-%m-%d").to_string();
 
     let delsu_parameters: Vec<(&str, &str)> = vec![
@@ -169,14 +167,29 @@ async fn check_delsu_availability(client: &Client) -> Result<String, Error> {
 
     let json_response: ApiResponse = response.json().await?;
 
-    if let Some(value) = get_free_shift_data(json_response, &DELSU_SHIFT_ENDTIME) {
-        return Ok(value);
+    if let Some(value) = get_free_shift_data(json_response, &DELSU_SHIFT_ENDTIME, &formatted_date) {
+        Ok(value)
     } else {
-        return Ok("EI DATAA!".to_string());
+        Ok("EI DATAA!".to_string())
     }
 }
 
-fn get_free_shift_data(response: ApiResponse, shift_end_time: &u32) -> Option<String> {
+fn get_next_shift_date(weekday_target: Weekday) -> DateTime<Local> {
+    let date_now: DateTime<Local> = Local::now();
+    let weekday_now: Weekday = date_now.weekday();
+
+    let days_until_next: i32 =
+        (weekday_target.number_from_monday() as i32 - weekday_now.number_from_monday() as i32 + 7)
+            % 7;
+
+    date_now + Duration::days(days_until_next as i64)
+}
+
+fn get_free_shift_data(
+    response: ApiResponse,
+    shift_end_time: &u32,
+    formatted_date: &str,
+) -> Option<String> {
     for shift_item in response.data {
         if let Some(endtime) = &shift_item.attributes.endtime {
             let endtime: DateTime<Tz> = DateTime::parse_from_rfc3339(endtime)
@@ -185,8 +198,9 @@ fn get_free_shift_data(response: ApiResponse, shift_end_time: &u32) -> Option<St
             println!("Free shift endtimes: {}", endtime.to_rfc3339());
             if &endtime.hour() == shift_end_time {
                 println!(
-                    "Vuoro vapaana, joka loppuu tunnilla {}",
-                    endtime.hour().to_string()
+                    "Vuoro vapaana {}, joka loppuu tunnilla {}",
+                    formatted_date,
+                    endtime.hour()
                 );
                 return Some("Vapaa on!".to_string());
             } else {
@@ -194,5 +208,5 @@ fn get_free_shift_data(response: ApiResponse, shift_end_time: &u32) -> Option<St
             }
         }
     }
-    return Some("EI VAPAATA VUOROA!".to_string());
+    Some("EI VAPAATA VUOROA!".to_string())
 }
