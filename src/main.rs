@@ -170,8 +170,7 @@ async fn check_delsu_availability(client: &Client) -> Result<String, Error> {
     if let Some(value) = get_free_shift_data(json_response, &DELSU_SHIFT_ENDTIME, &formatted_date) {
         Ok(value)
     } else {
-        // Ok("EI DATAA!".to_string())
-        Ok(format!("EI VAPAATA VUOROA! {}", formatted_date))
+        Ok(format!("EI DATAA! {}", formatted_date))
     }
 }
 
